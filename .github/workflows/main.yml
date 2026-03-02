@@ -7,11 +7,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # Use devkitPro's toolchain container so we don't need apt.devkitpro.org
     container:
       image: devkitpro/devkitarm:latest
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install basics (curl/tar/make)
+        run: |
+          apt-get update
+          apt-get install -y curl ca-certificates tar make gcc g++ pkg-config cmake libpng-dev
 
       - name: Install 3DS dev libraries
         run: |
@@ -20,19 +27,27 @@ jobs:
 
       - name: Build bannertool (no git)
         run: |
-          wget -qO bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/master
+          set -e
+          # Try main first, then master
+          (curl -L -o bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/main \
+           || curl -L -o bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/master)
           tar -xzf bannertool.tar.gz
           cd bannertool-*
           make
           cp bannertool /usr/local/bin/
+          bannertool -h >/dev/null 2>&1 || true
 
       - name: Build makerom (no git)
         run: |
-          wget -qO project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/master
+          set -e
+          # Try main first, then master
+          (curl -L -o project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/main \
+           || curl -L -o project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/master)
           tar -xzf project_ctr.tar.gz
           cd Project_CTR-*/makerom
           make
           cp makerom /usr/local/bin/
+          makerom -h >/dev/null 2>&1 || true
 
       - name: Build 3dsx + cia
         run: |
@@ -46,3 +61,4 @@ jobs:
           path: |
             DrumMixer.3dsx
             DrumMixer.cia
+            README.txt

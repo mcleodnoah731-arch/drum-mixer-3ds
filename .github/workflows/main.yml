@@ -8,53 +8,47 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    # Run everything inside devkitPro's toolchain container (no apt.devkitpro.org needed)
+    container:
+      image: devkitpro/devkitarm:latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Show toolchain info
         run: |
-          sudo apt update
-          sudo apt install -y build-essential git cmake pkg-config libpng-dev wget
+          echo "DEVKITPRO=$DEVKITPRO"
+          echo "DEVKITARM=$DEVKITARM"
+          which arm-none-eabi-gcc || true
+          which dkp-pacman || true
 
-      - name: Install devkitPro
+      # Install 3DS libraries inside the container (uses dkp-pacman inside the image)
+      - name: Install 3DS dev libraries
         run: |
-          wget https://apt.devkitpro.org/install-devkitpro-pacman
-          chmod +x install-devkitpro-pacman
-          sudo ./install-devkitpro-pacman
-
-          echo "/opt/devkitpro/pacman/bin" >> $GITHUB_PATH
-
-      - name: Install devkitARM + 3DS libs
-        run: |
-          sudo dkp-pacman -Syu --noconfirm
-          sudo dkp-pacman -S --noconfirm devkitARM 3ds-dev
+          dkp-pacman -Syu --noconfirm
+          dkp-pacman -S --noconfirm 3ds-dev
 
       - name: Build bannertool
         run: |
-          git clone https://github.com/Steveice10/bannertool.git
-          cd bannertool
-          make
-          sudo cp bannertool /usr/local/bin/
+          git clone --depth 1 https://github.com/Steveice10/bannertool.git
+          make -C bannertool
+          cp bannertool/bannertool /usr/local/bin/
 
       - name: Build makerom
         run: |
-          git clone https://github.com/3DSGuy/Project_CTR.git
-          cd Project_CTR/makerom
-          make
-          sudo cp makerom /usr/local/bin/
+          git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git
+          make -C Project_CTR/makerom
+          cp Project_CTR/makerom/makerom /usr/local/bin/
 
-      - name: Build project
-        env:
-          DEVKITPRO: /opt/devkitpro
-          DEVKITARM: /opt/devkitpro/devkitARM
+      - name: Build 3dsx + cia
         run: |
           make
           make cia
 
-      - name: Upload CIA
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: DrumMixer
+          name: DrumMixer-build
           path: |
-            DrumMixer.cia
             DrumMixer.3dsx
+            DrumMixer.cia

@@ -1,0 +1,31 @@
+BasicInfo:
+  Title                   : "Drum Mixer"
+  ProductCode             : "CTR-P-DMRX"
+  UniqueId                : 0x1337
+  Category                : Application
+  Version                 : 0
+
+TitleInfo:
+  Category                : Application
+  UniqueId                : 0x1337
+
+Option:
+  EnableCompress          : true
+  FreeProductCode         : true
+  UseOnSD                 : true
+
+SystemControlInfo:
+  SaveDataSize            : 0
+  RemasterVersion         : 0
+
+AccessControlInfo:
+  CoreVersion             : 2
+  DescVersion             : 2
+  ReleaseKernelMajor      : 2
+  ReleaseKernelMinor      : 48
+  InterruptNumbers        : []
+  SystemCallAccess        : []
+  MemoryMapping           : []
+  IORegisterMapping       : []
+  FileSystemAccess        : []
+  ServiceAccessControl    : []

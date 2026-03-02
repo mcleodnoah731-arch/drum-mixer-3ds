@@ -8,46 +8,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # Use devkitPro's toolchain container so we don't need apt.devkitpro.org
+    # Preinstalled 3DS dev environment (includes libctru + bannertool + makerom)
     container:
-      image: devkitpro/devkitarm:latest
+      image: ahoischen/3ds-dev:latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install basics (curl/tar/make)
+      - name: Show tools (debug)
         run: |
-          apt-get update
-          apt-get install -y curl ca-certificates tar make gcc g++ pkg-config cmake libpng-dev
-
-      - name: Install 3DS dev libraries
-        run: |
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S --noconfirm 3ds-dev
-
-      - name: Build bannertool (no git)
-        run: |
-          set -e
-          # Try main first, then master
-          (curl -L -o bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/main \
-           || curl -L -o bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/master)
-          tar -xzf bannertool.tar.gz
-          cd bannertool-*
-          make
-          cp bannertool /usr/local/bin/
-          bannertool -h >/dev/null 2>&1 || true
-
-      - name: Build makerom (no git)
-        run: |
-          set -e
-          # Try main first, then master
-          (curl -L -o project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/main \
-           || curl -L -o project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/master)
-          tar -xzf project_ctr.tar.gz
-          cd Project_CTR-*/makerom
-          make
-          cp makerom /usr/local/bin/
-          makerom -h >/dev/null 2>&1 || true
+          echo "DEVKITPRO=$DEVKITPRO"
+          echo "DEVKITARM=$DEVKITARM"
+          which arm-none-eabi-gcc || true
+          which bannertool || true
+          which makerom || true
 
       - name: Build 3dsx + cia
         run: |

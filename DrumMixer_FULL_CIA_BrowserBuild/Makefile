@@ -20,7 +20,12 @@ APP_RSF := $(META_DIR)/app.rsf
 SMDH := $(TARGET).smdh
 BANNER_BIN := banner.bin
 
-include $(DEVKITPRO)/libctru/base_rules
+# Support both old and new devkitPro layouts
+ifeq ($(wildcard $(DEVKITPRO)/libctru/base_rules),)
+  include $(DEVKITPRO)/ctrulib/libctru/base_rules
+else
+  include $(DEVKITPRO)/libctru/base_rules
+endif
 
 # ---- CIA packaging (requires makerom + bannertool in PATH) ----
 

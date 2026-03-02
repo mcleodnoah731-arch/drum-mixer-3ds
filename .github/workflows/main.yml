@@ -9,13 +9,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Pull 3DS build image (preinstalled toolchain)
+      - name: Pull 3DS build image
         run: docker pull greatwizard/devkitarm-3ds:latest
 
-      - name: Build CIA + 3DSX inside container
+      - name: Build CIA + 3DSX inside container (symlink fix)
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/project \
@@ -24,43 +23,35 @@ jobs:
             bash -lc '
               set -e
 
-              # This image uses this path for devkitPro
               export DEVKITPRO=/opt/devkitPro
               export DEVKITARM=/opt/devkitPro/devkitARM
 
               echo "DEVKITPRO=$DEVKITPRO"
               echo "DEVKITARM=$DEVKITARM"
 
-              echo "== Check libctru rules exist =="
+              echo "== Locate libctru base_rules =="
+              if [ -f "$DEVKITPRO/libctru/base_rules" ]; then
+                echo "Found: $DEVKITPRO/libctru/base_rules"
+              elif [ -f "$DEVKITPRO/ctrulib/libctru/base_rules" ]; then
+                echo "Found old layout: $DEVKITPRO/ctrulib/libctru/base_rules"
+                echo "Creating symlink: $DEVKITPRO/libctru -> $DEVKITPRO/ctrulib/libctru"
+                rm -rf "$DEVKITPRO/libctru" || true
+                ln -s "$DEVKITPRO/ctrulib/libctru" "$DEVKITPRO/libctru"
+              else
+                echo "ERROR: Could not find libctru base_rules anywhere."
+                echo "Listing /opt/devkitPro:"
+                ls -la /opt/devkitPro || true
+                echo "Listing /opt/devkitPro/ctrulib (if exists):"
+                ls -la /opt/devkitPro/ctrulib || true
+                exit 1
+              fi
+
+              echo "== Verify base_rules now exists where Makefile expects =="
               ls -la "$DEVKITPRO/libctru/base_rules"
 
-              echo "== Ensure build tools exist (makerom + bannertool) =="
-              # If they are missing in the image, build them from GitHub tarballs (no git auth needed)
-              if ! command -v bannertool >/dev/null 2>&1; then
-                echo "bannertool not found, building it..."
-                apt-get update
-                apt-get install -y curl ca-certificates tar make gcc g++ libpng-dev
-                (curl -L -o bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/main \
-                 || curl -L -o bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/master)
-                tar -xzf bannertool.tar.gz
-                cd bannertool-*
-                make
-                cp bannertool /usr/local/bin/
-                cd /project/DrumMixer_FULL_CIA_BrowserBuild
-              fi
-
-              if ! command -v makerom >/dev/null 2>&1; then
-                echo "makerom not found, building it..."
-                apt-get update
-                apt-get install -y curl ca-certificates tar make gcc g++
-                (curl -L -o project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/main \
-                 || curl -L -o project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/master)
-                tar -xzf project_ctr.tar.gz
-                cd Project_CTR-*/makerom
-                make
-                cp makerom /usr/local/bin/
-                cd /project/DrumMixer_FULL_CIA_BrowserBuild
-              fi
+              echo "== Check makerom + bannertool (should be included) =="
+              which bannertool || true
+              which makerom || true
 
               echo "== Build =="
               make
@@ -70,11 +61,10 @@ jobs:
               ls -la *.3dsx *.cia
             '
 
-      - name: Upload build artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: DrumMixer-build
           path: |
             DrumMixer_FULL_CIA_BrowserBuild/*.cia
             DrumMixer_FULL_CIA_BrowserBuild/*.3dsx
-            DrumMixer_FULL_CIA_BrowserBuild/README.txt

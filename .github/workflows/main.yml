@@ -14,7 +14,7 @@ jobs:
       - name: Pull 3DS build image
         run: docker pull greatwizard/devkitarm-3ds:latest
 
-      - name: Build CIA + 3DSX inside container (symlink fix)
+      - name: Build CIA + 3DSX
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/project \
@@ -27,38 +27,24 @@ jobs:
               export DEVKITARM=/opt/devkitPro/devkitARM
 
               echo "DEVKITPRO=$DEVKITPRO"
-              echo "DEVKITARM=$DEVKITARM"
 
-              echo "== Locate libctru base_rules =="
-              if [ -f "$DEVKITPRO/libctru/base_rules" ]; then
-                echo "Found: $DEVKITPRO/libctru/base_rules"
-              elif [ -f "$DEVKITPRO/ctrulib/libctru/base_rules" ]; then
-                echo "Found old layout: $DEVKITPRO/ctrulib/libctru/base_rules"
-                echo "Creating symlink: $DEVKITPRO/libctru -> $DEVKITPRO/ctrulib/libctru"
-                rm -rf "$DEVKITPRO/libctru" || true
-                ln -s "$DEVKITPRO/ctrulib/libctru" "$DEVKITPRO/libctru"
-              else
-                echo "ERROR: Could not find libctru base_rules anywhere."
-                echo "Listing /opt/devkitPro:"
-                ls -la /opt/devkitPro || true
-                echo "Listing /opt/devkitPro/ctrulib (if exists):"
-                ls -la /opt/devkitPro/ctrulib || true
-                exit 1
-              fi
+              echo "== Patch Makefile for old devkitPro layout =="
 
-              echo "== Verify base_rules now exists where Makefile expects =="
-              ls -la "$DEVKITPRO/libctru/base_rules"
+              sed -i "s|include \$(DEVKITPRO)/libctru/base_rules|ifeq (\$(wildcard \$(DEVKITPRO)/libctru/base_rules),)\n  include \$(DEVKITPRO)/ctrulib/libctru/base_rules\nelse\n  include \$(DEVKITPRO)/libctru/base_rules\nendif|g" Makefile
 
-              echo "== Check makerom + bannertool (should be included) =="
+              echo "== Show patched section =="
+              grep -n base_rules Makefile || true
+
+              echo "== Check tools =="
               which bannertool || true
               which makerom || true
 
-              echo "== Build =="
+              echo "== Build project =="
               make
               make cia
 
-              echo "== Outputs =="
-              ls -la *.3dsx *.cia
+              echo "== Output files =="
+              ls -la *.cia *.3dsx
             '
 
       - name: Upload artifacts

@@ -14,7 +14,7 @@ jobs:
       - name: Pull 3DS build image
         run: docker pull greatwizard/devkitarm-3ds:latest
 
-      - name: Build CIA + 3DSX
+      - name: Build CIA + 3DSX (auto-find base_rules)
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/project \
@@ -25,25 +25,51 @@ jobs:
 
               export DEVKITPRO=/opt/devkitPro
               export DEVKITARM=/opt/devkitPro/devkitARM
-
               echo "DEVKITPRO=$DEVKITPRO"
 
-              echo "== Patch Makefile for old devkitPro layout =="
+              echo "== Revert Makefile to repo version (avoid double-patching) =="
+              if [ -d /project/.git ]; then
+                git checkout -- Makefile || true
+              fi
 
-              sed -i "s|include \$(DEVKITPRO)/libctru/base_rules|ifeq (\$(wildcard \$(DEVKITPRO)/libctru/base_rules),)\n  include \$(DEVKITPRO)/ctrulib/libctru/base_rules\nelse\n  include \$(DEVKITPRO)/libctru/base_rules\nendif|g" Makefile
+              echo "== Locate base_rules in this container =="
+              BASE_RULES=$(find "$DEVKITPRO" -maxdepth 8 \( -name base_rules -o -name base_rules.mk \) -type f 2>/dev/null | head -n 1 || true)
+              echo "BASE_RULES=$BASE_RULES"
+              if [ -z "$BASE_RULES" ]; then
+                echo "ERROR: Could not find base_rules anywhere under $DEVKITPRO"
+                echo "Tree (top levels):"
+                find "$DEVKITPRO" -maxdepth 3 -type d | sed -n "1,200p"
+                exit 1
+              fi
 
-              echo "== Show patched section =="
-              grep -n base_rules Makefile || true
+              echo "== Write local include file that points to the real base_rules =="
+              printf "include %s\n" "$BASE_RULES" > local_base_rules.mk
+              cat local_base_rules.mk
+
+              echo "== Patch Makefile to include local_base_rules.mk =="
+              # Replace ANY devkitPro base_rules include with our local file (works across layouts)
+              # If it does not exist, append it at the end as a fallback.
+              if grep -q "base_rules" Makefile; then
+                sed -i "s|^include .*base_rules.*$|include local_base_rules.mk|g" Makefile
+                sed -i "s|^include .*base_rules\\.mk.*$|include local_base_rules.mk|g" Makefile
+              else
+                echo "" >> Makefile
+                echo "include local_base_rules.mk" >> Makefile
+              fi
+
+              echo "== Confirm patched Makefile lines =="
+              grep -n "local_base_rules.mk" -n Makefile || true
+              grep -n "base_rules" -n Makefile || true
 
               echo "== Check tools =="
-              which bannertool || true
-              which makerom || true
+              which bannertool
+              which makerom
 
-              echo "== Build project =="
+              echo "== Build =="
               make
               make cia
 
-              echo "== Output files =="
+              echo "== Outputs =="
               ls -la *.cia *.3dsx
             '
 

@@ -9,61 +9,58 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Pull devkitPro container
-        run: docker pull devkitpro/devkitarm:latest
+      - name: Pull 3DS build image (preinstalled toolchain)
+        run: docker pull greatwizard/devkitarm-3ds:latest
 
-      - name: Build project
+      - name: Build CIA + 3DSX inside container
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/project \
             -w /project/DrumMixer_FULL_CIA_BrowserBuild \
-            devkitpro/devkitarm:latest \
+            greatwizard/devkitarm-3ds:latest \
             bash -lc '
               set -e
 
-              # Auto-detect correct DEVKITPRO path (some images use /opt/devkitPro)
-              if [ -d /opt/devkitPro ]; then
-                export DEVKITPRO=/opt/devkitPro
-              else
-                export DEVKITPRO=/opt/devkitpro
-              fi
-
-              # devkitARM folder lives under DEVKITPRO
-              export DEVKITARM=$DEVKITPRO/devkitARM
+              # This image uses this path for devkitPro
+              export DEVKITPRO=/opt/devkitPro
+              export DEVKITARM=/opt/devkitPro/devkitARM
 
               echo "DEVKITPRO=$DEVKITPRO"
               echo "DEVKITARM=$DEVKITARM"
 
-              echo "== Update + install required packages =="
-              dkp-pacman -Syu --noconfirm
-              dkp-pacman -S --noconfirm devkitARM libctru citro2d citro3d 3dstools tex3ds
-
-              echo "== Check base_rules exists =="
+              echo "== Check libctru rules exist =="
               ls -la "$DEVKITPRO/libctru/base_rules"
 
-              echo "== Install build deps for makerom/bannertool =="
-              apt-get update
-              apt-get install -y curl ca-certificates tar make gcc g++ libpng-dev
+              echo "== Ensure build tools exist (makerom + bannertool) =="
+              # If they are missing in the image, build them from GitHub tarballs (no git auth needed)
+              if ! command -v bannertool >/dev/null 2>&1; then
+                echo "bannertool not found, building it..."
+                apt-get update
+                apt-get install -y curl ca-certificates tar make gcc g++ libpng-dev
+                (curl -L -o bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/main \
+                 || curl -L -o bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/master)
+                tar -xzf bannertool.tar.gz
+                cd bannertool-*
+                make
+                cp bannertool /usr/local/bin/
+                cd /project/DrumMixer_FULL_CIA_BrowserBuild
+              fi
 
-              echo "== Build bannertool (no git) =="
-              (curl -L -o bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/main \
-               || curl -L -o bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/master)
-              tar -xzf bannertool.tar.gz
-              cd bannertool-*
-              make
-              cp bannertool /usr/local/bin/
-              cd /project/DrumMixer_FULL_CIA_BrowserBuild
-
-              echo "== Build makerom (no git) =="
-              (curl -L -o project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/main \
-               || curl -L -o project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/master)
-              tar -xzf project_ctr.tar.gz
-              cd Project_CTR-*/makerom
-              make
-              cp makerom /usr/local/bin/
-              cd /project/DrumMixer_FULL_CIA_BrowserBuild
+              if ! command -v makerom >/dev/null 2>&1; then
+                echo "makerom not found, building it..."
+                apt-get update
+                apt-get install -y curl ca-certificates tar make gcc g++
+                (curl -L -o project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/main \
+                 || curl -L -o project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/master)
+                tar -xzf project_ctr.tar.gz
+                cd Project_CTR-*/makerom
+                make
+                cp makerom /usr/local/bin/
+                cd /project/DrumMixer_FULL_CIA_BrowserBuild
+              fi
 
               echo "== Build =="
               make
@@ -73,10 +70,11 @@ jobs:
               ls -la *.3dsx *.cia
             '
 
-      - name: Upload artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: DrumMixer
+          name: DrumMixer-build
           path: |
             DrumMixer_FULL_CIA_BrowserBuild/*.cia
             DrumMixer_FULL_CIA_BrowserBuild/*.3dsx
+            DrumMixer_FULL_CIA_BrowserBuild/README.txt

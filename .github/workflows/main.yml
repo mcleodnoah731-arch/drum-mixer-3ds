@@ -8,31 +8,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # Image with 3DS tooling preinstalled (avoids pkg.devkitpro.org / dkp-pacman downloads)
-    container:
-      image: greatwizard/devkitarm-3ds:latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show tools (debug)
+      - name: Pull devkitPro container
         run: |
-          echo "DEVKITPRO=$DEVKITPRO"
-          echo "DEVKITARM=$DEVKITARM"
-          which arm-none-eabi-gcc || true
-          which bannertool || true
-          which makerom || true
+          docker pull devkitpro/devkitarm:latest
 
-      - name: Build 3dsx + cia
+      - name: Build project
         run: |
-          make
-          make cia
+          docker run --rm \
+            -v ${{ github.workspace }}:/project \
+            -w /project \
+            devkitpro/devkitarm:latest \
+            bash -c "
+              dkp-pacman -Syu --noconfirm &&
+              dkp-pacman -S --noconfirm 3ds-dev &&
+              make &&
+              make cia
+            "
 
-      - name: Upload artifacts
+      - name: Upload CIA
         uses: actions/upload-artifact@v4
         with:
-          name: DrumMixer-build
+          name: DrumMixer
           path: |
-            DrumMixer.3dsx
             DrumMixer.cia
-            README.txt
+            DrumMixer.3dsx

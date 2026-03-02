@@ -7,38 +7,32 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    # Run everything inside devkitPro's toolchain container (no apt.devkitpro.org needed)
     container:
       image: devkitpro/devkitarm:latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show toolchain info
-        run: |
-          echo "DEVKITPRO=$DEVKITPRO"
-          echo "DEVKITARM=$DEVKITARM"
-          which arm-none-eabi-gcc || true
-          which dkp-pacman || true
-
-      # Install 3DS libraries inside the container (uses dkp-pacman inside the image)
       - name: Install 3DS dev libraries
         run: |
           dkp-pacman -Syu --noconfirm
           dkp-pacman -S --noconfirm 3ds-dev
 
-      - name: Build bannertool
+      - name: Build bannertool (no git)
         run: |
-          git clone --depth 1 https://github.com/Steveice10/bannertool.git
-          make -C bannertool
-          cp bannertool/bannertool /usr/local/bin/
+          wget -qO bannertool.tar.gz https://codeload.github.com/Steveice10/bannertool/tar.gz/refs/heads/master
+          tar -xzf bannertool.tar.gz
+          cd bannertool-*
+          make
+          cp bannertool /usr/local/bin/
 
-      - name: Build makerom
+      - name: Build makerom (no git)
         run: |
-          git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git
-          make -C Project_CTR/makerom
-          cp Project_CTR/makerom/makerom /usr/local/bin/
+          wget -qO project_ctr.tar.gz https://codeload.github.com/3DSGuy/Project_CTR/tar.gz/refs/heads/master
+          tar -xzf project_ctr.tar.gz
+          cd Project_CTR-*/makerom
+          make
+          cp makerom /usr/local/bin/
 
       - name: Build 3dsx + cia
         run: |

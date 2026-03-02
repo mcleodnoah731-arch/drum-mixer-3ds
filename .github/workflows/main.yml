@@ -14,29 +14,37 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git cmake pkg-config libpng-dev
+          sudo apt-get install -y build-essential git cmake pkg-config libpng-dev wget
 
-      - name: Install devkitPro
+      - name: Install devkitPro pacman
         run: |
-          wget -qO- https://apt.devkitpro.org/install-devkitpro-pacman | sudo bash
+          wget -q https://apt.devkitpro.org/install-devkitpro-pacman
+          chmod +x ./install-devkitpro-pacman
+          sudo ./install-devkitpro-pacman
+
+          # Put dkp-pacman on PATH for this job
+          echo "/opt/devkitpro/pacman/bin" >> $GITHUB_PATH
+
+      - name: Install devkitARM + 3DS libraries
+        run: |
           sudo dkp-pacman -Syu --noconfirm
           sudo dkp-pacman -S --noconfirm devkitARM 3ds-dev
 
       - name: Build bannertool
         run: |
-          git clone https://github.com/Steveice10/bannertool.git
+          git clone --depth 1 https://github.com/Steveice10/bannertool.git
           cd bannertool
           make
           sudo cp bannertool /usr/local/bin/
 
       - name: Build makerom
         run: |
-          git clone https://github.com/3DSGuy/Project_CTR.git
+          git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git
           cd Project_CTR/makerom
           make
           sudo cp makerom /usr/local/bin/
 
-      - name: Build project
+      - name: Build 3dsx + cia
         env:
           DEVKITPRO: /opt/devkitpro
           DEVKITARM: /opt/devkitpro/devkitARM
@@ -44,10 +52,10 @@ jobs:
           make
           make cia
 
-      - name: Upload CIA
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: DrumMixer
+          name: DrumMixer-build
           path: |
-            DrumMixer.cia
             DrumMixer.3dsx
+            DrumMixer.cia

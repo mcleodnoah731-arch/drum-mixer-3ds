@@ -21,9 +21,20 @@ jobs:
             -w /project/DrumMixer_FULL_CIA_BrowserBuild \
             devkitpro/devkitarm:latest \
             bash -lc "
-              dkp-pacman -Syu --noconfirm &&
-              printf '\n' | dkp-pacman -S --noconfirm 3ds-dev &&
-              make &&
+              set -e
+
+              # IMPORTANT: correct path casing in this container
+              export DEVKITPRO=/opt/devkitPro
+              export DEVKITARM=\$DEVKITPRO/devkitARM
+
+              echo DEVKITPRO=\$DEVKITPRO
+              ls -la \$DEVKITPRO || true
+              ls -la \$DEVKITPRO/libctru || true
+
+              dkp-pacman -Syu --noconfirm
+              printf '\n' | dkp-pacman -S --noconfirm 3ds-dev
+
+              make
               make cia
             "
 

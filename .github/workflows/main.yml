@@ -14,7 +14,7 @@ jobs:
       - name: Pull devkitPro container
         run: docker pull devkitpro/devkitarm:latest
 
-      - name: Build project (CIA + 3DSX)
+      - name: Build project
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/project \
@@ -23,22 +23,25 @@ jobs:
             bash -lc '
               set -e
 
-              # Make sure env vars are set (some images rely on these)
-              export DEVKITPRO=/opt/devkitpro
-              export DEVKITARM=/opt/devkitpro/devkitARM
+              # Auto-detect correct DEVKITPRO path (some images use /opt/devkitPro)
+              if [ -d /opt/devkitPro ]; then
+                export DEVKITPRO=/opt/devkitPro
+              else
+                export DEVKITPRO=/opt/devkitpro
+              fi
+
+              # devkitARM folder lives under DEVKITPRO
+              export DEVKITARM=$DEVKITPRO/devkitARM
 
               echo "DEVKITPRO=$DEVKITPRO"
               echo "DEVKITARM=$DEVKITARM"
 
-              echo "== Update pacman and install required 3DS packages (NON-interactive) =="
+              echo "== Update + install required packages =="
               dkp-pacman -Syu --noconfirm
-
-              # Install exact packages we need (avoid the interactive 3ds-dev group)
-              dkp-pacman -S --noconfirm \
-                devkitARM libctru citro2d citro3d 3dstools tex3ds
+              dkp-pacman -S --noconfirm devkitARM libctru citro2d citro3d 3dstools tex3ds
 
               echo "== Check base_rules exists =="
-              ls -la $DEVKITPRO/libctru/base_rules
+              ls -la "$DEVKITPRO/libctru/base_rules"
 
               echo "== Install build deps for makerom/bannertool =="
               apt-get update

@@ -8,9 +8,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # Preinstalled 3DS dev environment (includes libctru + bannertool + makerom)
+    # Image with 3DS tooling preinstalled (avoids pkg.devkitpro.org / dkp-pacman downloads)
     container:
-      image: ahoischen/3ds-dev:latest
+      image: greatwizard/devkitarm-3ds:latest
 
     steps:
       - uses: actions/checkout@v4
